@@ -12,7 +12,6 @@ router.post('/start-level', authMiddleware, async (req, res) => {
     const { level } = req.body;
     const user = await User.findOne({ telegram_id: req.user.id });
     
-    // Check if user can play this level
     if (level > user.level) {
       return res.status(403).json({ error: 'Level locked' });
     }
@@ -20,16 +19,22 @@ router.post('/start-level', authMiddleware, async (req, res) => {
     // Delete any existing active session
     await GameSession.deleteMany({ user_id: req.user.id, status: 'active' });
     
-    // Generate 10 questions for this level
+    // Generate 10 UNIQUE questions for this level
     const questions = [];
     const difficulty = Math.min(Math.floor(level / 3) + 1, 5);
+    const usedQuestionIds = [];
     
     for (let i = 0; i < 10; i++) {
-      let question = await Question.findOne({ 
-        difficulty,
-        used_count: { $lt: 100 }
-      }).sort({ used_count: 1 });
+      let question;
       
+      // Try to find a question not used in this session
+      question = await Question.findOne({ 
+        difficulty,
+        _id: { $nin: usedQuestionIds },
+        used_count: { $lt: 1000 }
+      }).sort({ used_count: 1, created_at: -1 });
+      
+      // If no unused question exists, generate new one
       if (!question) {
         const newQ = await generateQuestion(difficulty);
         if (newQ) {
@@ -39,8 +44,10 @@ router.post('/start-level', authMiddleware, async (req, res) => {
       }
       
       if (question) {
+        usedQuestionIds.push(question._id);
         question.used_count += 1;
         await question.save();
+        
         questions.push({
           question_id: question._id,
           user_answer: -1,
@@ -76,40 +83,6 @@ router.post('/start-level', authMiddleware, async (req, res) => {
     
   } catch (error) {
     console.error('Start level error:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Get current question
-router.get('/current-question', authMiddleware, async (req, res) => {
-  try {
-    const session = await GameSession.findOne({ 
-      user_id: req.user.id, 
-      status: 'active' 
-    });
-    
-    if (!session) {
-      return res.status(404).json({ error: 'No active session' });
-    }
-    
-    const currentQ = session.questions[session.current_question_index];
-    const question = await Question.findById(currentQ.question_id);
-    
-    res.json({
-      session_id: session._id,
-      total_questions: 10,
-      current_question: session.current_question_index + 1,
-      progress: ((session.current_question_index) / 10) * 100,
-      question: {
-        id: question._id,
-        question: question.question,
-        options: question.options,
-        category: question.category
-      }
-    });
-    
-  } catch (error) {
-    console.error('Current question error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

@@ -2,31 +2,35 @@ const { Telegraf, Markup } = require('telegraf');
 require('dotenv').config();
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
-
-// Web App URL - Your deployed Render URL
 const WEBAPP_URL = process.env.WEBAPP_URL || 'https://wizzyquizlybot-game.onrender.com';
 
-// Start command
+// Start command with referral
 bot.start((ctx) => {
     const user = ctx.from;
+    const payload = ctx.startPayload;
     
-    ctx.reply(
-        `🎩 Welcome to *Wiz Quizzly*, ${user.first_name}! ✨\n\n` +
-        `🧙‍♂️ Test your knowledge and become a quiz master!\n\n` +
-        `🌟 Features:\n` +
-        `• AI-generated questions\n` +
-        `• Level up system\n` +
-        `• Global leaderboard\n` +
-        `• Daily rewards\n\n` +
-        `Ready to play? Tap the button below! 👇`,
-        {
-            parse_mode: 'Markdown',
-            reply_markup: Markup.inlineKeyboard([
-                [Markup.button.webApp('🎮 Play Now', WEBAPP_URL)],
-                [Markup.button.url('📢 Join Channel', 'https://t.me/wizquizzly')]
-            ])
-        }
-    );
+    let message = `🎩 Welcome to *Wiz Quizzly*, ${user.first_name}! ✨\n\n`;
+    message += `🧙‍♂️ Test your knowledge and become a quiz master!\n\n`;
+    message += `🌟 Features:\n`;
+    message += `• 300+ challenging levels\n`;
+    message += `• AI-generated questions\n`;
+    message += `• Level progression system\n`;
+    message += `• Global leaderboard\n`;
+    message += `• Invite friends & earn rewards\n\n`;
+    
+    if (payload) {
+        message += `🎁 You were invited! Click Play to claim your bonus!\n\n`;
+    }
+    
+    message += `Ready to play? Tap the button below! 👇`;
+    
+    ctx.reply(message, {
+        parse_mode: 'Markdown',
+        reply_markup: Markup.inlineKeyboard([
+            [Markup.button.webApp('🎮 Play Now', `${WEBAPP_URL}${payload ? '?ref=' + payload : ''}`)],
+            [Markup.button.url('📢 Join Channel', 'https://t.me/wizquizzly')]
+        ])
+    });
 });
 
 // Help command
@@ -35,9 +39,16 @@ bot.help((ctx) => {
         `🎮 *Wiz Quizzly Help*\n\n` +
         `/start - Start the game\n` +
         `/play - Open the game\n` +
+        `/levels - View all levels\n` +
         `/profile - View your stats\n` +
-        `/leaderboard - Global rankings\n\n` +
-        `💡 Tip: Answer quickly for time bonuses!`,
+        `/leaderboard - Global rankings\n` +
+        `/referral - Invite friends\n\n` +
+        `💡 *How to Play:*\n` +
+        `• Select a level (1-300)\n` +
+        `• Answer all 10 questions correctly\n` +
+        `• Unlock the next level\n` +
+        `• Earn XP and climb the leaderboard!\n\n` +
+        `⚡ Tip: Answer quickly for better scores!`,
         { parse_mode: 'Markdown' }
     );
 });
@@ -45,9 +56,19 @@ bot.help((ctx) => {
 // Play command
 bot.command('play', (ctx) => {
     ctx.reply(
-        '🎮 Click below to start playing!',
+        '🎮 Choose your level and start playing!',
         Markup.inlineKeyboard([
             [Markup.button.webApp('🚀 Launch Game', WEBAPP_URL)]
+        ])
+    );
+});
+
+// Levels command
+bot.command('levels', (ctx) => {
+    ctx.reply(
+        '🎮 Select a level to play!\n\nComplete all 10 questions to unlock the next level.',
+        Markup.inlineKeyboard([
+            [Markup.button.webApp('📊 View Levels', WEBAPP_URL)]
         ])
     );
 });
@@ -55,9 +76,9 @@ bot.command('play', (ctx) => {
 // Profile command
 bot.command('profile', (ctx) => {
     ctx.reply(
-        '👤 View your profile in the game!',
+        '👤 View your stats and progress!',
         Markup.inlineKeyboard([
-            [Markup.button.webApp('📊 View Profile', WEBAPP_URL)]
+            [Markup.button.webApp('📊 My Profile', WEBAPP_URL)]
         ])
     );
 });
@@ -65,36 +86,22 @@ bot.command('profile', (ctx) => {
 // Leaderboard command
 bot.command('leaderboard', (ctx) => {
     ctx.reply(
-        '🏆 Check the global leaderboard!',
+        '🏆 Check the global rankings!',
         Markup.inlineKeyboard([
-            [Markup.button.webApp('🏆 View Leaderboard', WEBAPP_URL)]
+            [Markup.button.webApp('🏆 Leaderboard', WEBAPP_URL)]
         ])
     );
 });
 
-// Handle web app data
-bot.on('web_app_data', async (ctx) => {
-    try {
-        const data = JSON.parse(ctx.webAppData.data);
-        
-        if (data.action === 'game_complete') {
-            ctx.reply(
-                `🎉 *Game Complete!*\n\n` +
-                `⭐ Score: ${data.score}\n` +
-                `✅ Correct: ${data.correct}\n` +
-                `❌ Wrong: ${data.wrong}\n\n` +
-                `Great job! Play again?`,
-                {
-                    parse_mode: 'Markdown',
-                    reply_markup: Markup.inlineKeyboard([
-                        [Markup.button.webApp('🔄 Play Again', WEBAPP_URL)]
-                    ])
-                }
-            );
-        }
-    } catch (error) {
-        console.error('Web app data error:', error);
-    }
+// Referral command
+bot.command('referral', (ctx) => {
+    ctx.reply(
+        '🎁 Invite friends and earn rewards!\n\n' +
+        'Share your referral link to get 100 points per friend!',
+        Markup.inlineKeyboard([
+            [Markup.button.webApp('🎁 Get My Link', WEBAPP_URL)]
+        ])
+    );
 });
 
 // Error handling

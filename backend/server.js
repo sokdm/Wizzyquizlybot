@@ -8,6 +8,7 @@ const authRoutes = require('./routes/auth');
 const quizRoutes = require('./routes/quiz');
 const userRoutes = require('./routes/user');
 const leaderboardRoutes = require('./routes/leaderboard');
+const referralRoutes = require('./routes/referral');
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/referral', referralRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

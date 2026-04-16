@@ -15,7 +15,11 @@ const userSchema = new mongoose.Schema({
   last_played: { type: Date, default: Date.now },
   daily_reward_claimed: { type: Date },
   total_correct: { type: Number, default: 0 },
-  total_wrong: { type: Number, default: 0 }
+  total_wrong: { type: Number, default: 0 },
+  referral_code: { type: String, unique: true },
+  referred_by: { type: Number, default: null },
+  referrals_count: { type: Number, default: 0 },
+  referral_bonus: { type: Number, default: 0 }
 }, { timestamps: true });
 
 // Calculate level based on XP

@@ -1,7 +1,5 @@
 // Wiz Quizzly - Main App
-const API_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:3000/api' 
-    : 'https://your-render-url.onrender.com/api';
+const API_URL = 'https://wizzyquizlybot.onrender.com/api';
 
 let tg = window.Telegram.WebApp;
 let currentUser = null;
@@ -16,8 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
     tg.expand();
     
     // Set theme
-    tg.setHeaderColor('#0F0F1A');
-    tg.setBackgroundColor('#0F0F1A');
+    tg.setHeaderColor('#0a0a0f');
+    tg.setBackgroundColor('#0a0a0f');
     
     // Initialize auth
     initAuth();
@@ -31,7 +29,22 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('back-btn').addEventListener('click', showWelcome);
     document.getElementById('leaderboard-back-btn').addEventListener('click', showWelcome);
     document.getElementById('daily-reward-btn').addEventListener('click', claimDailyReward);
+    
+    // Add particle effects
+    createParticles();
 });
+
+// Particle effects
+function createParticles() {
+    for (let i = 0; i < 20; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = Math.random() * 100 + 'vw';
+        particle.style.animationDelay = Math.random() * 10 + 's';
+        particle.style.animationDuration = (10 + Math.random() * 10) + 's';
+        document.body.appendChild(particle);
+    }
+}
 
 // Auth
 async function initAuth() {
@@ -113,7 +126,7 @@ async function loadQuestion() {
         
     } catch (error) {
         console.error('Load question error:', error);
-        alert('Failed to load question. Please try again.');
+        tg.showAlert('Failed to load question. Please try again.');
         showWelcome();
     }
 }
@@ -133,7 +146,7 @@ function startTimer() {
         
         if (timeLeft <= 0) {
             clearInterval(timerInterval);
-            submitAnswer(-1); // Time's up
+            submitAnswer(-1);
         }
     }, 100);
 }
@@ -262,7 +275,7 @@ async function claimDailyReward() {
         if (data.success) {
             tg.showAlert(`🎉 Daily reward claimed! +${data.reward} points`);
             document.getElementById('daily-reward-btn').style.display = 'none';
-            showProfile(); // Refresh
+            showProfile();
         }
     } catch (error) {
         console.error('Claim error:', error);
@@ -311,7 +324,6 @@ async function showLeaderboard() {
 }
 
 function updateUI() {
-    // Update any global UI elements with user data
     if (currentUser) {
         document.getElementById('current-level').textContent = currentUser.level;
         document.getElementById('current-score').textContent = currentUser.score;

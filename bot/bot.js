@@ -3,8 +3,8 @@ require('dotenv').config();
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// Web App URL - Update this after deploying to Render
-const WEBAPP_URL = process.env.WEBAPP_URL || 'https://your-app.onrender.com';
+// Web App URL - Your deployed Render URL
+const WEBAPP_URL = process.env.WEBAPP_URL || 'https://wizzyquizlybot-game.onrender.com';
 
 // Start command
 bot.start((ctx) => {
@@ -23,7 +23,7 @@ bot.start((ctx) => {
             parse_mode: 'Markdown',
             reply_markup: Markup.inlineKeyboard([
                 [Markup.button.webApp('🎮 Play Now', WEBAPP_URL)],
-                [Markup.button.url('📢 Join Channel', 'https://t.me/yourchannel')]
+                [Markup.button.url('📢 Join Channel', 'https://t.me/wizquizzly')]
             ])
         }
     );
@@ -53,36 +53,21 @@ bot.command('play', (ctx) => {
 });
 
 // Profile command
-bot.command('profile', async (ctx) => {
-    try {
-        const response = await axios.get(`${WEBAPP_URL}/api/user/profile`, {
-            headers: { 'X-Telegram-Init-Data': ctx.webAppData?.data || '' }
-        });
-        
-        const data = response.data;
-        
-        ctx.reply(
-            `👤 *Your Profile*\n\n` +
-            `🏆 Level: ${data.level}\n` +
-            `⭐ Score: ${data.score.toLocaleString()}\n` +
-            `🎮 Games: ${data.games_played}\n` +
-            `🔥 Best Streak: ${data.max_streak}\n` +
-            `🎯 Accuracy: ${data.accuracy}%\n\n` +
-            `Keep playing to improve! 🚀`,
-            { parse_mode: 'Markdown' }
-        );
-    } catch (error) {
-        ctx.reply('Please open the game first to see your profile!');
-    }
+bot.command('profile', (ctx) => {
+    ctx.reply(
+        '👤 View your profile in the game!',
+        Markup.inlineKeyboard([
+            [Markup.button.webApp('📊 View Profile', WEBAPP_URL)]
+        ])
+    );
 });
 
 // Leaderboard command
 bot.command('leaderboard', (ctx) => {
     ctx.reply(
-        '🏆 Check the global leaderboard in the game!\n\n' +
-        'Click below to see top players:',
+        '🏆 Check the global leaderboard!',
         Markup.inlineKeyboard([
-            [Markup.button.webApp('📊 View Leaderboard', WEBAPP_URL)]
+            [Markup.button.webApp('🏆 View Leaderboard', WEBAPP_URL)]
         ])
     );
 });

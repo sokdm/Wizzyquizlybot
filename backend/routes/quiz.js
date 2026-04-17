@@ -12,6 +12,10 @@ router.post('/start-level', authMiddleware, async (req, res) => {
     const { level } = req.body;
     const user = await User.findOne({ telegram_id: req.user.id });
     
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
     if (level > user.level) {
       return res.status(403).json({ error: 'Level locked' });
     }
@@ -57,6 +61,11 @@ router.post('/start-level', authMiddleware, async (req, res) => {
       }
     }
     
+    // Check if we have 10 questions
+    if (questions.length < 10) {
+      return res.status(500).json({ error: 'Failed to generate enough questions' });
+    }
+    
     const session = new GameSession({
       user_id: req.user.id,
       level,
@@ -83,7 +92,7 @@ router.post('/start-level', authMiddleware, async (req, res) => {
     
   } catch (error) {
     console.error('Start level error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Server error: ' + error.message });
   }
 });
 
@@ -92,55 +101,23 @@ router.post('/answer', authMiddleware, async (req, res) => {
   try {
     const { answer_index, time_taken } = req.body;
     
+    console.log('Answer request:', { user_id: req.user.id, answer_index, time_taken });
+    
     const session = await GameSession.findOne({ 
       user_id: req.user.id, 
       status: 'active' 
     });
     
     if (!session) {
+      console.log('No active session found for user:', req.user.id);
       return res.status(404).json({ error: 'No active session' });
     }
     
-    const currentQ = session.questions[session.current_question_index];
-    const question = await Question.findById(currentQ.question_id);
+    console.log('Session found:', session._id, 'Current index:', session.current_question_index);
     
-    const isCorrect = answer_index === question.correct_answer;
-    
-    // Update session
-    session.questions[session.current_question_index].user_answer = answer_index;
-    session.questions[session.current_question_index].is_correct = isCorrect;
-    session.questions[session.current_question_index].time_taken = time_taken;
-    
-    if (isCorrect) {
-      session.correct_count += 1;
-      session.score += 10 * session.level;
-    } else {
-      session.wrong_count += 1;
-    }
-    
-    session.current_question_index += 1;
-    
-    // Check if level complete
+    // Check if already completed all questions
     if (session.current_question_index >= 10) {
-      session.status = session.correct_count === 10 ? 'completed' : 'failed';
-      session.completed_at = new Date();
-      await session.save();
-      
-      // Update user
-      const user = await User.findOne({ telegram_id: req.user.id });
-      user.score += session.score;
-      user.xp += session.correct_count * 10;
-      user.games_played += 1;
-      user.total_correct += session.correct_count;
-      user.total_wrong += session.wrong_count;
-      
-      // Level up only if perfect score
-      if (session.correct_count === 10 && session.level === user.level) {
-        user.level += 1;
-      }
-      
-      await user.save();
-      
+      console.log('Session already complete');
       return res.json({
         level_complete: true,
         passed: session.correct_count === 10,
@@ -153,11 +130,90 @@ router.post('/answer', authMiddleware, async (req, res) => {
       });
     }
     
+    const currentQ = session.questions[session.current_question_index];
+    
+    if (!currentQ) {
+      console.log('Current question not found at index:', session.current_question_index);
+      return res.status(404).json({ error: 'Question not found in session' });
+    }
+    
+    const question = await Question.findById(currentQ.question_id);
+    
+    if (!question) {
+      console.log('Question not found in database:', currentQ.question_id);
+      return res.status(404).json({ error: 'Question not found' });
+    }
+    
+    const isCorrect = answer_index === question.correct_answer;
+    console.log('Answer result:', { isCorrect, correct_answer: question.correct_answer, user_answer: answer_index });
+    
+    // Update session
+    session.questions[session.current_question_index].user_answer = answer_index;
+    session.questions[session.current_question_index].is_correct = isCorrect;
+    session.questions[session.current_question_index].time_taken = time_taken || 0;
+    
+    if (isCorrect) {
+      session.correct_count += 1;
+      session.score += 10 * session.level;
+    } else {
+      session.wrong_count += 1;
+    }
+    
+    // Move to next question
+    session.current_question_index += 1;
+    console.log('Updated index:', session.current_question_index);
+    
+    // Check if level complete (all 10 questions answered)
+    if (session.current_question_index >= 10) {
+      console.log('Level complete!');
+      
+      // Mark session as completed or failed
+      const passed = session.correct_count === 10;
+      session.status = passed ? 'completed' : 'failed';
+      session.completed_at = new Date();
+      await session.save();
+      
+      // Update user stats
+      const user = await User.findOne({ telegram_id: req.user.id });
+      if (user) {
+        user.score += session.score;
+        user.xp += session.correct_count * 10;
+        user.games_played += 1;
+        user.total_correct += session.correct_count;
+        user.total_wrong += session.wrong_count;
+        
+        // Level up only if perfect score (10/10)
+        if (passed && session.level === user.level) {
+          user.level += 1;
+          console.log('User leveled up to:', user.level);
+        }
+        
+        await user.save();
+      }
+      
+      return res.json({
+        level_complete: true,
+        passed: passed,
+        results: {
+          correct: session.correct_count,
+          wrong: session.wrong_count,
+          score: session.score,
+          total_questions: 10
+        }
+      });
+    }
+    
+    // Save session before returning next question
     await session.save();
     
     // Return next question
     const nextQ = session.questions[session.current_question_index];
     const nextQuestion = await Question.findById(nextQ.question_id);
+    
+    if (!nextQuestion) {
+      console.log('Next question not found:', nextQ.question_id);
+      return res.status(404).json({ error: 'Next question not found' });
+    }
     
     res.json({
       level_complete: false,
@@ -176,7 +232,7 @@ router.post('/answer', authMiddleware, async (req, res) => {
     
   } catch (error) {
     console.error('Answer error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Server error: ' + error.message });
   }
 });
 
@@ -184,6 +240,10 @@ router.post('/answer', authMiddleware, async (req, res) => {
 router.get('/levels', authMiddleware, async (req, res) => {
   try {
     const user = await User.findOne({ telegram_id: req.user.id });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     
     const levels = [];
     for (let i = 1; i <= 300; i++) {

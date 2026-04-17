@@ -24,10 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
 function initEventListeners() {
     // Sidebar
     document.getElementById('menu-toggle').addEventListener('click', openSidebar);
-    document.getElementById('levels-menu-toggle').addEventListener('click', openSidebar);
-    document.getElementById('profile-menu-toggle').addEventListener('click', openSidebar);
-    document.getElementById('leaderboard-menu-toggle').addEventListener('click', openSidebar);
-    document.getElementById('referral-menu-toggle').addEventListener('click', openSidebar);
+    document.getElementById('levels-menu-toggle')?.addEventListener('click', openSidebar);
+    document.getElementById('profile-menu-toggle')?.addEventListener('click', openSidebar);
+    document.getElementById('leaderboard-menu-toggle')?.addEventListener('click', openSidebar);
+    document.getElementById('referral-menu-toggle')?.addEventListener('click', openSidebar);
     document.getElementById('close-sidebar').addEventListener('click', closeSidebar);
     document.getElementById('sidebar-overlay').addEventListener('click', closeSidebar);
     
@@ -141,7 +141,7 @@ async function showLevels() {
         const grid = document.getElementById('levels-grid');
         grid.innerHTML = '';
         
-        // Show levels 1-50 initially (lazy load more on scroll)
+        // Show levels 1-50 initially
         const displayLevels = Math.min(50, data.levels.length);
         
         for (let i = 0; i < displayLevels; i++) {
@@ -201,7 +201,7 @@ function showQuestion(data) {
     document.getElementById('current-score').textContent = currentUser?.score || 0;
     document.getElementById('question-text').textContent = data.question.question;
     document.getElementById('category-tag').textContent = data.question.category;
-    document.getElementById('quiz-progress').style.width = `${data.progress}%`;
+    document.getElementById('quiz-progress').style.width = `${((data.current_question - 1) / 10) * 100}%`;
     
     const optionsContainer = document.getElementById('options-container');
     optionsContainer.innerHTML = '';
@@ -242,7 +242,7 @@ function stopTimer() {
     clearInterval(timerInterval);
 }
 
-// Submit Answer
+// Submit Answer - FIXED VERSION
 async function submitAnswer(answerIndex) {
     stopTimer();
     
@@ -271,37 +271,45 @@ async function submitAnswer(answerIndex) {
                 tg.HapticFeedback.notificationOccurred('success');
             } else {
                 buttons[answerIndex].classList.add('wrong');
-                if (data.correct_answer !== -1) {
+                if (data.correct_answer !== -1 && data.correct_answer !== answerIndex) {
                     buttons[data.correct_answer].classList.add('correct');
                 }
                 tg.HapticFeedback.notificationOccurred('error');
             }
         }
         
+        // Check if level is complete
         if (data.level_complete) {
-            setTimeout(() => showLevelResults(data.results, data.passed), 1000);
+            // Wait for animation then show results
+            setTimeout(() => {
+                showLevelResults(data.results, data.passed);
+            }, 1500);
         } else {
-            setTimeout(() => showQuestion({
-                session_id: currentSession,
-                total_questions: 10,
-                current_question: data.current_question,
-                progress: data.progress,
-                question: data.next_question
-            }), 1000);
+            // Show next question
+            setTimeout(() => {
+                showQuestion({
+                    session_id: currentSession,
+                    total_questions: 10,
+                    current_question: data.current_question,
+                    progress: data.progress,
+                    question: data.next_question
+                });
+            }, 1000);
         }
         
     } catch (error) {
         console.error('Submit error:', error);
+        tg.showAlert('Error submitting answer. Please try again.');
     }
 }
 
-// Show Level Results
+// Show Level Results - FIXED
 function showLevelResults(results, passed) {
     showScreen('level-result-screen');
     
     const icon = passed ? '🎉' : '😢';
     const title = passed ? 'Level Complete!' : 'Level Failed';
-    const message = passed ? 'Perfect! Next level unlocked!' : 'Get all 10 correct to proceed!';
+    const message = passed ? 'Perfect! Next level unlocked!' : 'You need 10/10 correct to proceed. Try again!';
     
     document.getElementById('level-result-icon').textContent = icon;
     document.getElementById('level-result-title').textContent = title;
@@ -309,11 +317,18 @@ function showLevelResults(results, passed) {
     document.getElementById('result-correct').textContent = results.correct;
     document.getElementById('result-wrong').textContent = results.wrong;
     
-    document.getElementById('retry-level-btn').style.display = passed ? 'none' : 'block';
-    document.getElementById('next-level-btn').style.display = passed ? 'block' : 'none';
+    // Show/hide buttons based on pass/fail
+    const retryBtn = document.getElementById('retry-level-btn');
+    const nextBtn = document.getElementById('next-level-btn');
     
     if (passed) {
+        retryBtn.style.display = 'none';
+        nextBtn.style.display = 'block';
+        // Update user level locally
         currentUser.level = Math.max(currentUser.level, currentLevel + 1);
+    } else {
+        retryBtn.style.display = 'block';
+        nextBtn.style.display = 'none';
     }
 }
 
@@ -375,6 +390,7 @@ async function claimDailyReward() {
         console.error('Claim error:', error);
     }
 }
+
 // Leaderboard
 async function showLeaderboard() {
     try {

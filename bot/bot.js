@@ -111,8 +111,16 @@ bot.catch((err, ctx) => {
 
 // Launch bot
 bot.launch()
-    .then(() => console.log('🤖 Bot started!'))
+    .then(() => {
+        console.log('🤖 Bot started successfully!');
+        console.log('Bot is running...');
+    })
     .catch(err => console.error('Bot error:', err));
+
+// Keep alive for Render (Background Worker)
+setInterval(() => {
+    console.log('Bot heartbeat:', new Date().toISOString());
+}, 60000);
 
 // Enable graceful stop
 process.once('SIGINT', () => bot.stop('SIGINT'));
